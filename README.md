@@ -3,10 +3,9 @@
 An aesthetic, all-in-one API security scanner CLI.
 
 ```bash
-git clone https://github.com/yourname/apiscout
+git clone https://github.com/anaselkhettabi/apiscout
 cd apiscout
 pip install -e .
-pip install apiscout
 apiscout scan https://api.example.com
 apiscout scan https://api.example.com --spec openapi.yaml --verbose --html report.html
 ```
