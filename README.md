@@ -6,8 +6,14 @@ An aesthetic, all-in-one API security scanner CLI.
 git clone https://github.com/anaselkhettabi/apiscout
 cd apiscout
 pip install -e .
-apiscout scan https://api.example.com
-apiscout scan https://api.example.com --spec openapi.yaml --verbose --html report.html
+# headers + fuzzer only
+apiscout scan https://petstore.swagger.io
+
+# all 4 modules — headers, spec, live, fuzzer
+apiscout scan https://petstore.swagger.io --spec https://petstore.swagger.io/v2/swagger.json
+
+# full scan with verbose output and report export
+apiscout scan https://petstore.swagger.io --spec https://petstore.swagger.io/v2/swagger.json --verbose --json results.json --html results.html
 ```
 
 ## Features
