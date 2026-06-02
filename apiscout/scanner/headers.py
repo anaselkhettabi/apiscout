@@ -52,6 +52,8 @@ DANGEROUS_HEADERS = {
     ),
 }
 
+_CORS_PROBE_ORIGIN = "https://cors-probe.invalid"
+
 
 async def check_headers(
     client: httpx.AsyncClient,
@@ -98,9 +100,8 @@ async def check_headers(
                 )
             )
 
-    # CORS check
-    origin_test = dict(resp.headers)
-    acao = origin_test.get("access-control-allow-origin", "")
+    # Wildcard CORS
+    acao = resp.headers.get("access-control-allow-origin", "")
     if acao == "*":
         finding_counter[0] += 1
         findings.append(
@@ -115,5 +116,40 @@ async def check_headers(
                 evidence="Access-Control-Allow-Origin: *",
             )
         )
+
+    # Reflective CORS — send a spoofed Origin and see if it's echoed back
+    try:
+        cors_resp = await client.get(
+            target,
+            headers={"Origin": _CORS_PROBE_ORIGIN},
+            follow_redirects=True,
+        )
+        reflected = cors_resp.headers.get("access-control-allow-origin", "")
+        creds = cors_resp.headers.get("access-control-allow-credentials", "").lower()
+        if reflected == _CORS_PROBE_ORIGIN:
+            severity = Severity.CRITICAL if creds == "true" else Severity.HIGH
+            finding_counter[0] += 1
+            findings.append(
+                Finding(
+                    id=f"HDR-{finding_counter[0]:03d}",
+                    severity=severity,
+                    module="headers",
+                    endpoint="*",
+                    title="Reflective CORS Policy" + (" with Credentials" if creds == "true" else ""),
+                    detail=(
+                        "The server reflects the request Origin back verbatim. "
+                        + (
+                            "Combined with Access-Control-Allow-Credentials: true, any authenticated cross-origin request can be made by an attacker-controlled page."
+                            if creds == "true"
+                            else "Any origin can read responses — equivalent to a wildcard policy."
+                        )
+                    ),
+                    remediation="Validate Origin against an explicit allowlist. Never reflect the Origin header unconditionally.",
+                    evidence=f"Access-Control-Allow-Origin: {reflected}"
+                    + (f"\nAccess-Control-Allow-Credentials: {creds}" if creds == "true" else ""),
+                )
+            )
+    except httpx.RequestError:
+        pass
 
     return findings

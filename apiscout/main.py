@@ -89,7 +89,7 @@ async def _run_scan(
             spec_endpoints: list[str] = []
             if spec:
                 t_spec = progress.add_task("Analyzing OpenAPI spec…", total=1, status="")
-                spec_findings, spec_endpoints = spec_scanner.analyze_spec(spec, finding_counter)
+                spec_findings, spec_endpoints = await spec_scanner.analyze_spec(client, spec, finding_counter)
                 result.findings.extend(spec_findings)
                 progress.update(
                     t_spec, advance=1,

@@ -5,10 +5,10 @@ from pathlib import Path
 from ..models import Finding, Severity
 
 
-def _load_spec(source: str) -> dict | None:
+async def _load_spec(client: httpx.AsyncClient, source: str) -> dict | None:
     if source.startswith("http://") or source.startswith("https://"):
         try:
-            resp = httpx.get(source, timeout=10, follow_redirects=True)
+            resp = await client.get(source, follow_redirects=True)
             resp.raise_for_status()
             try:
                 return resp.json()
@@ -28,7 +28,6 @@ def _load_spec(source: str) -> dict | None:
 
 
 def _iter_paths(spec: dict) -> list[tuple[str, str, dict]]:
-    """Yields (path, method, operation) triples."""
     results = []
     for path, methods in spec.get("paths", {}).items():
         for method, op in methods.items():
@@ -43,14 +42,17 @@ def _has_security(op: dict, global_security: list) -> bool:
     return bool(global_security)
 
 
-def analyze_spec(source: str, finding_counter: list[int]) -> tuple[list[Finding], list[str]]:
+async def analyze_spec(
+    client: httpx.AsyncClient,
+    source: str,
+    finding_counter: list[int],
+) -> tuple[list[Finding], list[str]]:
     findings: list[Finding] = []
-    spec = _load_spec(source)
+    spec = await _load_spec(client, source)
 
     if spec is None:
         return findings, []
 
-    version = "openapi" if "openapi" in spec else "swagger"
     global_security = spec.get("security", [])
     paths_obj = spec.get("paths", {})
     endpoints = [m.upper() + " " + p for p, methods in paths_obj.items() for m in methods if m.lower() not in ("parameters", "summary", "description")]
@@ -58,7 +60,6 @@ def analyze_spec(source: str, finding_counter: list[int]) -> tuple[list[Finding]
     for path, method, op in _iter_paths(spec):
         endpoint_label = f"{method} {path}"
 
-        # Check: no auth on sensitive methods
         if method in ("POST", "PUT", "PATCH", "DELETE") and not _has_security(op, global_security):
             finding_counter[0] += 1
             findings.append(
@@ -73,7 +74,6 @@ def analyze_spec(source: str, finding_counter: list[int]) -> tuple[list[Finding]
                 )
             )
 
-        # Check: GET returning sensitive-sounding data with no auth
         if method == "GET" and not _has_security(op, global_security):
             path_lower = path.lower()
             if any(k in path_lower for k in ("/user", "/account", "/profile", "/admin", "/secret", "/token", "/key")):
@@ -90,7 +90,6 @@ def analyze_spec(source: str, finding_counter: list[int]) -> tuple[list[Finding]
                     )
                 )
 
-        # Check: deprecated operations still in spec
         if op.get("deprecated", False):
             finding_counter[0] += 1
             findings.append(
@@ -105,7 +104,6 @@ def analyze_spec(source: str, finding_counter: list[int]) -> tuple[list[Finding]
                 )
             )
 
-        # Check: parameters without schema validation
         for param in op.get("parameters", []):
             if "schema" not in param and "content" not in param:
                 finding_counter[0] += 1
@@ -121,7 +119,6 @@ def analyze_spec(source: str, finding_counter: list[int]) -> tuple[list[Finding]
                     )
                 )
 
-    # Check: no global auth schemes defined
     if not spec.get("components", {}).get("securitySchemes") and not spec.get("securityDefinitions"):
         finding_counter[0] += 1
         findings.append(

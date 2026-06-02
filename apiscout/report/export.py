@@ -32,7 +32,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>APIScount Report — {target}</title>
+<title>apiscout Report — {target}</title>
 <style>
   body {{ font-family: 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; margin: 0; padding: 2rem; }}
   h1 {{ color: #58a6ff; }} h2 {{ color: #8b949e; font-weight: 400; }}
@@ -52,7 +52,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 </style>
 </head>
 <body>
-<h1>APIScount Security Report</h1>
+<h1>apiscout Security Report</h1>
 <p class="meta">Target: <strong>{target}</strong> &nbsp;|&nbsp; Score: <span class="score">{score}/100</span><span class="grade">Grade {grade}</span> &nbsp;|&nbsp; {duration}s</p>
 <div class="summary">{badges}</div>
 <h2>Findings</h2>
